@@ -1,0 +1,70 @@
+initial: 20 4 3
+missing number: 22
+dominants:
+0: 18 13 6 19 
+1: 19 19 16 6 
+2: 18 11 14 7 
+3: 19 19 15 16 
+4: 13 19 8 13 
+5: 19 13 11 19 
+6: 19 16 11 19 
+7: 15 19 19 10 
+8: 11 19 6 12 
+9: 9 8 6 5 
+10: 19 17 8 17 
+11: 10 19 6 12 
+12: 18 18 19 16 
+13: 7 19 9 19 
+14: 9 8 18 19 
+15: 19 9 12 18 
+16: 19 19 14 19 
+17: 19 16 19 16 
+18: 14 10 19 9 
+19: 12 16 18 9 
+
+maxscore:
+6 6 7 15 8 11 11 10 6 5 8 6 16 7 8 9 14 16 9 9 
+--------------For priority queue----------------
+12 17 3 16 19 5 6 2 7 4 10 11 0 13 14 15 1 8 18 9 
+dequeue: 12
+score[12]: 0
+dequeue: 17
+score[17]: 0
+dequeue: 3
+score[3]: 0
+dequeue: 16
+score[16]: 0
+dequeue: 7
+score[7]: 0
+dequeue: 15
+score[15]: 0
+dequeue: 19
+score[19]: 0
+dequeue: 18
+score[18]: 0
+dequeue: 14
+score[14]: 0
+dequeue: 2
+score[2]: 0
+dequeue: 10
+score[10]: 0
+dequeue: 4
+score[4]: 0
+dequeue: 13
+score[13]: 0
+dequeue: 1
+score[1]: 0
+dequeue: 6
+score[6]: 0
+dequeue: 5
+score[5]: 0
+dequeue: 8
+score[8]: 0
+dequeue: 0
+score[0]: 0
+dequeue: 11
+score[11]: 0
+dequeue: 9
+score[9]: 0
+
+12 17 3 
