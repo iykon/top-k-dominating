@@ -12,9 +12,11 @@ struct DATASET{
 }dataset[AMOUNT];
 
 /*
-partition for quick sort
-find a pivot and sort elements smaller than it and larger than it
-*/
+ * function: partition
+ * partition for quick sort
+ * find a pivot and sort elements smaller than it and larger than it
+ * a[] is the index, d is dimention  l is lower bound, r is upper bound
+ */
 int partition(int a[],int d, int l,int r){
 	int pivot = dataset[a[l]].value[d], i = l-1, j = r+1;
 	while (1){
@@ -32,9 +34,10 @@ int partition(int a[],int d, int l,int r){
 }		
 
 /*
-quick sort the array
-l is lower bound, r is upper bound
-*/
+ * function: quicksort
+ * quick sort the array
+ * a[] is the index, d is dimention  l is lower bound, r is upper bound
+ */
 void quicksort(int a[],int d, int l, int r){
 	int p;
 	if(l<r){
@@ -44,6 +47,10 @@ void quicksort(int a[],int d, int l, int r){
 	}
 }
 
+/*
+ * function: perculateUp
+ * a[] stores the keys, index[] is the index being sorted, pos is current position
+ */
 void perculateUp(int a[], int index[], int pos){
 	int l=pos+pos, r=pos+pos+1;
 	int largest = pos;
