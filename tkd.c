@@ -1,3 +1,4 @@
+
 #include "postgres.h"
 #include "fmgr.h"
 #include "funcapi.h"
@@ -8,9 +9,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define AMOUNT 100
-#define MAXDIMENTION 10
-
 #define MISS -2147483647
 
 PG_MODULE_MAGIC;
@@ -19,25 +17,35 @@ int partition(int a[], int d, int l, int r);
 void quicksort(int a[], int d, int l, int r);
 void perculateUp(int a[], int index[], int pos);
 int popqueue(int a[],int v[]);
-int getscore(int obj,int tau,int missingnumber, int sc);//parameter hasn't been finished,as well as where calls it
+int getscore(int obj,int tau,int missingnumber, int sc);
 void tkd_exec(void);
 Datum tkd_query(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(tkd_query);
 
 typedef struct DATASET{
-	int *missing;//1 represents for missing data
-	int *value;//value of data
-	int *T;// the number of values it dominates, say less than it
+	int *missing;	//value 1 represents for missing data, 0 otherwise
+	int *value;		//value of data
+	int *T;			// the number of values it dominates, say less than it
 }Dataset;
 
 int N,K,D;
 int *candidateset;
 Dataset *dataset;
+
+///////////////////////////////////////////////////////////////////////
 /*
-partition for quick sort
-find a pivot and sort elements smaller than it and larger than it
-*/
+ * name: partition
+ * author : Weida Pan
+ * description: partition for quick sort
+ * implementation: find a pivot and sort elements smaller than it and larger than it
+ * arguments: int a[] -- array being sorted
+			  int d   -- dimention of dataset
+			  int l   -- lower bound of array, included
+			  int r   -- upper bound of array, included
+ * return value: the index of pivot for quicksort
+ */
+///////////////////////////////////////////////////////////////////////
 int partition(int a[],int d, int l,int r){
 	int pivot = dataset[a[l]].value[d], i = l-1, j = r+1;
 	while (1){
@@ -54,10 +62,15 @@ int partition(int a[],int d, int l,int r){
 	}
 }		
 
+///////////////////////////////////////
 /*
-quick sort the array
-l is lower bound, r is upper bound
-*/
+ * name: quicksort
+ * author: Weida Pan
+ * description:
+ * quick sort the array
+ * l is lower bound, r is upper bound
+ */
+///////////////////////////////////////
 void quicksort(int a[],int d, int l, int r){
 	int p;
 	if(l<r){
@@ -67,6 +80,9 @@ void quicksort(int a[],int d, int l, int r){
 	}
 }
 
+//////////////////
+/*
+ * 
 void perculateUp(int a[], int index[], int pos){
 	int l=pos+pos, r=pos+pos+1;
 	int largest = pos;
@@ -167,10 +183,6 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			if(!dataset[j].missing[i])
 				ari[++ari[0]]=j;
 		quicksort(ari,i,1,ari[0]);
-		//printf("print the result of sort %d numbers.\n",ari[0]);
-		for(l=1;l<=ari[0];++l)
-			;//printf("%d ",dataset[ari[l]].value[i]);
-		//printf("\n");
 		goods[0]=goods[1]=1;
 		goodv[1]=dataset[ari[1]].value[i];
 		for(j=2;j<=ari[0];++j)//calculate the number of a certain value
@@ -180,16 +192,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				goods[++goods[0]]=1;
 				goodv[goods[0]]=dataset[ari[j]].value[i];
 			}
-		//printf("goods and goodv: %d\n",goods[0]);
-		for(j=1;j<=goods[0];++j)
-			;//printf("%d ",goods[j]);
-		//printf("\n");
-		for(j=1;j<=goods[0];++j)
-			;//printf("%d ",goodv[j]);
-		//printf("\n");
-		//printf("%e %d\n",sigma,N);
 		kesai[i]=(int)(sqrt(sigma*N/(log(sigma*N)-1)));
-		//printf("kesai: %d\n",kesai[i]);
 		average=(int)(ari[0]/kesai[i]);
 		if(goods[0]<=kesai[i]){//if goods are less than bins
 			kesai[i]=goods[0];
@@ -649,21 +652,3 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 		SRF_RETURN_DONE(funcctx);
 	}
 }
-
-/*
-int main(int argc, char **argv){
-	time_t ctm;
-	clock_t start,stop;
-	if(argc!=3){
-		printf("usage %s <input_file> <output_file>\n",argv[0]);
-		return 0;
-	}
-	freopen(argv[1],"r",stdin);
-	//freopen(argv[2],"w",stdout);
-	start = clock();
-	TKD();
-	stop = clock();
-	printf("%6.3f\n",(double)(stop-start)/1000);
-	return 0;
-}
-*/
