@@ -13,6 +13,9 @@
 
 PG_MODULE_MAGIC;
 
+/*
+ * pre declaration, descriptions are displayed below
+ */
 int partition(int a[], int d, int l, int r);
 void quicksort(int a[], int d, int l, int r);
 void perculateUp(int a[], int index[], int pos);
@@ -21,7 +24,7 @@ int getscore(int obj,int tau,int missingnumber, int sc);
 void tkd_exec(void);
 Datum tkd_query(PG_FUNCTION_ARGS);
 
-PG_FUNCTION_INFO_V1(tkd_query);
+PG_FUNCTION_INFO_V1(tkd_query); // version 1 function set to postgresql server
 
 typedef struct DATASET{
 	int *missing;	//value 1 represents for missing data, 0 otherwise
@@ -29,9 +32,9 @@ typedef struct DATASET{
 	int *T;			// the number of values it dominates, say less than it
 }Dataset;
 
-int N,K,D;
-int *candidateset;
-Dataset *dataset;
+int N,D,K; // number of objects, number of dimentions, top K as in query
+int *candidateset; // candidate set
+Dataset *dataset; // date set of all objects
 
 ///////////////////////////////////////////////////////////////////////
 /*
@@ -66,9 +69,13 @@ int partition(int a[],int d, int l,int r){
 /*
  * name: quicksort
  * author: Weida Pan
- * description:
- * quick sort the array
- * l is lower bound, r is upper bound
+ * description: sort the array by 'quick sort'
+ * implementation: same as how quick sort is implemented
+ * arguments: int a[] -- array being sorted
+ * 			  int d   -- dimention of dataset
+ * 			  int l   -- lower bound of array, included
+ * 			  int r   -- upper bound of array, included
+ * return value: none
  */
 ///////////////////////////////////////
 void quicksort(int a[],int d, int l, int r){
@@ -80,9 +87,18 @@ void quicksort(int a[],int d, int l, int r){
 	}
 }
 
-//////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /*
- * 
+ * name: perculateUp
+ * author: Weida Pan
+ * description: update upwards in a heap
+ * implementation: find swap the largest among current node and its children to current index, do recursively
+ * arguments: int a[] 	  -- keys of heap
+ * 			  int index[] -- index of heap
+ * 			  int pos 	  -- current index in heap
+ * return value: none
+ */
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void perculateUp(int a[], int index[], int pos){
 	int l=pos+pos, r=pos+pos+1;
 	int largest = pos;
@@ -102,6 +118,18 @@ void perculateUp(int a[], int index[], int pos){
 	return;
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ * name: popqueue
+ * author: Weida Pan
+ * description: pop the head from a heap and maintain the property of heap
+ * implementation: put an key to the head, and update downwards by find the largest among current position and its children
+ * 				   execute recursively until hit the tail of heap
+ * arguments: int a[] -- index of heap
+ * 			  int v[] -- keys of heap
+ * return value: index of the formar head key
+ */
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int popqueue(int a[],int v[]){
 	int popqueue=a[1];
 	int pos=1,largest;
@@ -123,21 +151,36 @@ int popqueue(int a[],int v[]){
 	return popqueue;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+/*
+ * name: getscore
+ * author: Weida Pan
+ * description: get score of an object in dataset
+ * implementation: 
+ * arguments: int obj -- index of object in dataset
+ * 			  int tau -- 
+ * 			  int missingnumber -- the number of missing values of all objects
+ * 			  int sc -- number of candidates in current candidate set
+ * return value: score of the object
+ */
+////////////////////////////////////////////////////////////////////////////////
 int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been finished,as well as where calls it
-	double sigma;
+	double sigma; // σ, missing rate
 	int i,j,k,l;
 	int sum,lastu,average,bin;
 	int pando;
-	int ar,omiga;
-	int *kesai;//the number of bins
-	int *ari,*goods,*goodv;
-	int *lbound,*ubound;
-	int *nonD;
-	int *whichbin;
-	int *incomparable,incomparablenumber;
-	int *tagT;
-	int **bitmap;
-	int **Pi,**Qi,*Q,*P,Qc,Pc;
+	int ar; 
+	int omiga;
+	int *kesai; // ξ, the number of bins for each dimention
+	int *ari; // all existing values in a dimention
+	int *goods,*goodv; // number and value of distinguishing values
+	int *lbound,*ubound; // lower value of a bin and upper value of a bin, respectively, included
+	int *nonD; // as defined in paper
+	int *whichbin; // store which bin does a value belong to
+	int *incomparable,incomparablenumber; // set of incomparable values, number of incomparable values, respectively
+	int *tagT; // 
+	int **bitmap; // as define in paper, the bitmap of all objects
+	int **Pi,**Qi,*Q,*P,Qc,Pc; // as defined in paper
 	
 	kesai = (int *)palloc(sizeof(int)*D);
 	lbound = (int *)palloc(sizeof(int)*N);
@@ -160,33 +203,33 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 		Qi[i] = (int *)palloc(sizeof(int)*D);
 	}
 		
-	
-	//calculate the incomparable set with obj O(N*D)
-	//incomparable=1 means it is incomparable with obj
-	//incomparablenumber is the total number of incomparable data
+	/*
+	 *calculate the incomparable set with obj O(N*D)
+	 */
 	incomparablenumber=0;
-	//printf("incompa: ");
 	for(i=0;i<N;++i){
 		for(j=0;j<D;++j)
 			if(dataset[obj].missing[j]+dataset[i].missing[j]!=1)
 				break;
 		incomparablenumber+=incomparable[i]=(j==D);
-		//printf("%d ",incomparable[i]);
 	}
-	//printf("\n");
-	//calculate the bin size of each bin as well as the domain of each bin
+
+	/*
+	 * calculate the bin size of each bin as well as the domain of each bin
+	 * use a method of greedy
+	 * when the sum of all values approach average value, go to next bin
+	 */
 	sigma = (missingnumber+0.0)/(N*D);
-	//printf("missing: %d, sigma: %e\n",missingnumber,sigma);
 	for(i=0;i<D;i++){
-		ari[0]=0;//for sorting
+		ari[0]=0; // put all existing values in ari
 		for(j=0;j<N;++j)
 			if(!dataset[j].missing[i])
 				ari[++ari[0]]=j;
 		quicksort(ari,i,1,ari[0]);
-		goods[0]=goods[1]=1;
+		goods[0]=goods[1]=1; 
 		goodv[1]=dataset[ari[1]].value[i];
 		for(j=2;j<=ari[0];++j)//calculate the number of a certain value
-			if(dataset[ari[j]].value[i]==dataset[ari[j-1]].value[i])
+			if(dataset[ari[j]].value[i]==dataset[ari[j-1]].value[i]) // calculate the number of an identical value
 				++goods[goods[0]];
 			else{
 				goods[++goods[0]]=1;
@@ -194,7 +237,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			}
 		kesai[i]=(int)(sqrt(sigma*N/(log(sigma*N)-1)));
 		average=(int)(ari[0]/kesai[i]);
-		if(goods[0]<=kesai[i]){//if goods are less than bins
+		if(goods[0]<=kesai[i]){ //if goods are less than bins, each bin contains a single value
 			kesai[i]=goods[0];
 			bin=goods[0];
 			for(j=1;j<=goods[0];++j)
@@ -203,12 +246,12 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 		else{
 			sum=0,bin=0,lastu=1;
 			for(j=1;j<=goods[0];++j)
-				if(bin==kesai[i]-1){
+				if(bin==kesai[i]-1){ // this is the last bin
 					lbound[bin]=goodv[lastu];
 					ubound[bin]=goodv[goods[0]];
 					j=goods[0];
 				}
-				else if(sum>average){
+				else if(sum>average){ // sum is over average, go to next bin
 					sum=goods[j];
 					lbound[bin]=goodv[lastu];
 					ubound[bin]=goodv[j-1];
@@ -217,7 +260,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				}
 				else if(sum+goods[j]<average)
 					sum+=goods[j];
-				else if((average-sum)<=(sum+goods[j]-average)){
+				else if((average-sum)<=(sum+goods[j]-average)){ // when putting a value into a bin exactly over the sum, calculate the difference to decide put in into current bin or next bin
 						sum=goods[j];
 						ubound[bin]=goodv[j-1];
 						lbound[bin]=goodv[lastu];
@@ -232,14 +275,10 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 					++bin;
 				}
 		}
-		//printf("lbound and ubound:\n");
-		for(j=1;j<=bin;++j)
-			;//printf("%d ",lbound[j]);
-		for(j=1;j<=bin;++j)
-			;//printf("%d ",ubound[j]);
-		//printf("\n");
-		//cause core dump
-		//get bitmap of the data
+		
+		/*
+		 * get bitmap of the data
+		 */
 		for(j=0;j<N;++j){
 			if(dataset[j].missing[i]){
 				whichbin[j]=0;
@@ -256,8 +295,10 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 					bitmap[j][k]=0;
 			}
 		}
-		//establish Qi,Pi
-		//return 0;
+
+		/*
+		 * establish Qi,Pi
+		 */
 		if(dataset[obj].missing[i])
 			for(j=0;j<N;++j)
 				Pi[i][j]=Qi[i][j]=1;
@@ -266,8 +307,10 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				Qi[i][j]=bitmap[obj][whichbin[obj]];
 				Pi[i][j]=bitmap[obj][whichbin[obj]+1];
 	}
-	// to this step , bitmap index is finished
-	//and we calculate Q and P using Pi and Qi
+
+	/*
+	 * to this step calculate Q and P using Pi and Qi
+	 */
 	Qc=-1;	
 	for(i=0;i<N;++i){
 		for(j=0;j<D;++j)
@@ -295,7 +338,10 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			}
 			else
 				P[i]=0;
-		}//to this step, P is attained
+		}
+		/*
+		 * to this step, P is attained
+		 */
 		omiga=0;
 		for(i=0;i<N;++i)
 			if(P[i]==1 && incomparable[i]==0)
@@ -310,7 +356,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 							tagT[i]++;
 						else if(dataset[i].value[j]<dataset[obj].value[j]){
 							nonD[++nonD[0]]=i;
-							if(sc==K && nonD[0]>Qc-incomparablenumber-tau)//need a parameter here
+							if(sc==K && nonD[0]>Qc-incomparablenumber-tau)
 								return 0;
 						}
 					}
@@ -320,7 +366,9 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				if(pando==tagT[i])
 					nonD[++nonD[0]]=i;
 			}
-		//calculate the cardinality of two sets and return
+		/*
+		 * calculate the cardinality of two sets and return
+		 */
 		ar=0;
 		for(i=1;i<=nonD[0];++i)
 			Q[nonD[i]]=0;
@@ -330,13 +378,22 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ * name: tkd_exec
+ * author: Weida Pan
+ * description: execute top-k-dominating query and get the candidate
+ * implementation: calculate score and update candidate set using maxscore and maxbitscore pruning
+ * arguments: none
+ * return value: none
+ */
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void tkd_exec(){
 	int i,j,k,s,t,tau;
-	int *maxscore,*score;//pruning data
-	int *maxbitscore;//pruning data
-	int *queue;
-	int miss,*missd;//the number of missing value
-	int *arr;
+	int *maxscore,*score, *maxbitscore; // as define in paper, pruning data
+	int *queue; // priority queue, or heap
+	int miss,*missd; // the number of missing value
+	int *arr; // array
 
 	maxscore = (int *)palloc(sizeof(int)*N);
 	score = (int *)palloc(sizeof(int)*N);
@@ -345,19 +402,21 @@ void tkd_exec(){
 	candidateset = (int *)palloc(sizeof(int)*N);
 	arr = (int *)palloc(sizeof(int)*N);
 	missd = (int *)palloc(sizeof(int)*D);
+
 	miss = 0;
-	//input data set and calculate missing values O(N*D) 
-	//elog(INFO,"N,D,K: %d %d %d",N, D,K);
+	/*
+	 * calculate missing values O(N*D) and initialize T
+	 */
 	for(i = 0; i < N; ++i){
 		for(j = 0; j < D; ++j){
-			//elog(INFO,"i j T: %d %d %d",i,j,dataset[i].T[j]);
 			dataset[i].T[j] = N-1;//initialization
-			//here the value smaller than 0 donates missing, but need further update in application
 			miss += dataset[i].missing[j];
 		}
 	}
-	//calculate the number of objects a certain object dominates on a certain dimention O(D*N*N)
-	//printf("missing number: %d\n",miss);
+
+	/*
+	 * calculate the number of objects a certain object dominates on a certain dimention O(D*N*logN)
+	 */
 	for(i = 0; i < D; ++i){
 		missd[i] = 0;
 		for(j = 0; j < N; ++j){
@@ -367,72 +426,47 @@ void tkd_exec(){
 		}
 		quicksort(arr,i,0,N-1);
 		j = N-1;
-		//printf("miss: %d\n",missd[i]);
 		while(j>=missd[i]){
 			k = j;
 			while(k>0 && dataset[arr[j]].value[i]==dataset[arr[--k]].value[i]);
 			if(k==0)
 				--k;
-			//printf("j:%d k: %d\n",j,k);
 			for(s = k+1; s <= j; ++s)
 				dataset[arr[s]].T[i] = missd[i]+N-k-2;
 			j = k;
 		}
-		/*printf("%dth dimention\n",i);
-		for(j = 0; j < N; ++j)
-			printf("%d ",arr[j]);
-		printf("\n");
-		for(j = 0;j<N;++j)
-			printf("%d ",dataset[arr[j]].value[i]);
-		printf("\n");
-		*/
 	}
-	/*printf("high eff:\n");
-	for(i = 0; i<D;++i){
-		for(j = 0;j<N;++j)
-			printf("%d ",dataset[j].T[i]);
-		printf("\n");
-	}*/
-	//dataset[i].T[j] is correct
-	//printf("dominants:\n");
-	for(i = 0; i < N; ++i){
-		//printf("%d: ",i);
-		for(j = 0; j < D; ++j)
-			;//printf("%d ", dataset[i].T[j]);
-		//printf("\n");
-	}
-	//printf("\n");
-	//calculate maxscore O(N*D)
+
+	/*
+	 * calculate maxscore O(N*D)
+	 */
 	for(i = 0;i < N; ++i){
 		maxscore[i]=dataset[i].T[0];
 		for(j = 1; j < D; ++j)
 			if(dataset[i].T[j]<maxscore[i])
 				maxscore[i]=dataset[i].T[j];
 	}
-	//printf("maxscore:\n");
-	for(i = 0; i < N; ++i)
-		;//printf("%d ",maxscore[i]);
-	//printf("\n");
-	//maintain a priority queue O(N*logN)
+
+	/*
+	 * maintain a priority queue O(N*logN)
+	 */
 	queue[0] = N;
 	for(i = 1;i <= N; ++i)
 		queue[i] = i-1;
 	for(i = 1; i <= N/2; ++i)
 		perculateUp(maxscore,queue,i);
-	//printf("--------------For priority queue----------------\n");
-	for(i = 1; i <= N; ++i)
-		;//printf("%d ",queue[i]);
-	//printf("\n");
+
+	/*
+	 * maintain a candidate set with max scores and using pruning
+	 */
 	tau = -1,candidateset[0]=0;
 	while(queue[0]){
 		t = popqueue(queue,maxscore);
-		//printf("dequeue: %d\n",t);//correct dequeue
 		
-		if(maxscore[t]<tau)
+		if(maxscore[t]<tau) // maxscore pruning
 			break;
 		else{
-			score[t]=getscore(t,tau,miss,candidateset[0]);// the parameter in the function getscore is not completed yet
-			//printf("score[%d]: %d\n",t,score[t]);
+			score[t]=getscore(t,tau,miss,candidateset[0]); // bitscore pruning
 			if(score[t]>tau || tau<0){
 				if(candidateset[0]==K)
 					for(i=1;i<=candidateset[0];++i){
@@ -443,7 +477,8 @@ void tkd_exec(){
 					}
 				else 
 					candidateset[++candidateset[0]]=t;
-				if(candidateset[0]==K){
+				
+				if(candidateset[0]==K){ // candidate set full
 					tau=score[candidateset[1]];
 					for(i=2;i<=K;++i)
 						if(score[candidateset[i]]<tau)
@@ -453,15 +488,6 @@ void tkd_exec(){
 		}
 		
 	}
-	//printf("\n");
-	//to this step, the index remained in array sc is the result of the tkd query
-	//output the result
-	/*for(i=0;i<K;++i)
-		printf("%d ",sc[i+1]);
-	printf("\n");*/
-	elog(INFO,"K: %d",K);
-	for(i = 0; i < K; ++i)
-		elog(INFO,"%d ",candidateset[i+1]);
 	pfree(maxscore);
 	pfree(score);
 	pfree(queue);
@@ -470,6 +496,17 @@ void tkd_exec(){
 	pfree(maxbitscore);
 }
 
+///////////
+/*
+ * name: tkd_query
+ * author: Weida Pan
+ * description: a function integrated with postgresql server
+ * 				execute user query, read all tuples and execute tkd query
+ * 				output the result tuples as in postgresql
+ * arguments: PG_FUNCTION_ARGS -- postgres function arguments, infomation about tuples are included
+ * return value: postgresql data type
+ */
+///////////
 Datum tkd_query(PG_FUNCTION_ARGS){
 	char *command;
 	int i, j;
@@ -485,85 +522,91 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 
 	D = 0;
 	/*
-	this section will be executed only for the first call of function
-	connect to postgres server and execute the first command and get data
-	*/
+	 * this section will be executed only for the first call of function
+	 * connect to postgres server and execute the first command and get data
+	 */
 	if(SRF_IS_FIRSTCALL()){
-		//elog(INFO,"first call\n");
 		MemoryContext oldcontext;
 	
-		/* create a function context for cross-call persistence */
+		/* 
+		 * create a function context for cross-call persistence 
+		 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
-		/* switch to memory context appropriate for multiple function calls */
+		/* 
+		 * switch to memory context appropriate for multiple function calls 
+		 * */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* get arguments, convert given text object to a C string that can be used by server */
+		/* 
+		 * get arguments, convert given text object to a C string that can be used by server 
+		 * */
 		command = text_to_cstring(PG_GETARG_TEXT_P(0));
 
-		// arguments error
+		/*
+		 * arguments error
+		 * */
 		if(!PG_ARGISNULL(1))
 			K = PG_GETARG_INT32(1);
 		else
 			K = 1;
 	
-		// open internal connection to database
-		SPI_connect();
-		// run the SQL command, 0 for no limit of returned row number
-		ret = SPI_exec(command, 0);
-		//save the number of rows
-		N = SPI_processed;
+		SPI_connect(); // open internal connection to database
+
+		ret = SPI_exec(command, 0); // run the SQL command, 0 for no limit of returned row number
+		
+		N = SPI_processed; // save the number of rows
+
 		dataset = (Dataset *)palloc(sizeof(Dataset)*N);	
 		
-		elog(INFO,"N got: %d\n",N);
-		
-		//some rows are fetched
+		/*
+		 * some rows are fetched
+		 * */
 		if(ret > 0 && SPI_tuptable != NULL){
 			TupleDesc tupdesc;
 			SPITupleTable *tuptable;
 			HeapTuple tuple;
 			char *type_name;
 
-			//get tuple descriptor
+			/*
+			 * get tuple description
+			 * */
 			tupdesc = SPI_tuptable->tupdesc;
 			tuptable = SPI_tuptable;
 
-			/* for each colum, check type*/
+			/* 
+			 * for each colum, check type
+			 * */
 			for(i = 1; i <= tupdesc->natts; ++i){ 
 				type_name = SPI_gettype(tupdesc, i);// get type of data
 				if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") ==0 )//add float4 or flat8 types if want (2)
 					++D;
 			}
-			elog(INFO,"D got: %d\n",D);
 			
-			/* for each tuple*/
+			/* 
+			 * for each tuple
+			 * */
 			for(i = 0; i < N; ++i){
 				dataset[i].missing = (int *)palloc(sizeof(int)*D);
 				dataset[i].value = (int *)palloc(sizeof(int)*D);
 				dataset[i].T = (int *)palloc(sizeof(int)*D);
 				curdm = 0;
-				tuple = tuptable->vals[i];//what is this??????????????????
+				tuple = tuptable->vals[i]; // get the ith tuple
 
-				/* for each dimention of a tuple */
+				/* 
+				 * for each dimention of a tuple 
+				 * */
 				for(j = 1; j <= tupdesc->natts; ++j) {
 					type_name = SPI_gettype(tupdesc, j);
 					if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") == 0 ){
-						// value is missing
-						if(SPI_getvalue(tuple, tupdesc, j) == NULL) {
-							//elog(INFO,"- ");
+						if(SPI_getvalue(tuple, tupdesc, j) == NULL) { // value is missing
 							dataset[i].missing[curdm] = 1;
 							dataset[i].value[curdm] = MISS;
-							//elog(INFO,"i j v: %d %d -",i,curdm);
 						}
-						// value is not missing
-						else{
-							//elog(INFO,"%d ", atoi(SPI_getvalue(tuple, tupdesc, j)));
+						else{ // value is not missing
 							dataset[i].missing[curdm] = 0;
 							dataset[i].value[curdm] = atof(SPI_getvalue(tuple, tupdesc, j));
-							//elog(INFO,"i j v: %d %d %d",i,curdm,dataset[i].value[curdm]);
 						}
-						//dataset[i].T[curdm] = N-1;
-						//elog(INFO,"i j T: %d %d %d",i,curdm,dataset[i].T[curdm]);
 						++curdm;
 					}
 				}
@@ -571,20 +614,13 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 		}
 		pfree(command);
 
-		tkd_exec();
+		tkd_exec(); // call to execute tkd query
 		
-		elog(INFO,"after execute tkd.");
 		funcctx->max_calls = K;
 	
-		//allocate local variable retstruct and store the result tuple init
-		/*retstruct = (Dataset *)palloc(sizeof(Dataset)*K);
-		for(i = 0; i < K; ++i ){
-			retstruct[i].value = (int *)palloc(sizeof(int)*D);
-			for(j = 0; j < D; ++j )
-				retstruct[i].value[j] = dataset[candidateset[i+1]].value[j];
-		}
-		*/
-		//funcctx->user_fctx = (int *)palloc(sizeof(int)*K);
+		/*
+		 * allocate local variable retstruct and store the result tuple init
+		 * */
 		retarr = (int *)palloc(sizeof(int)*K);
 		for(i = 0; i < K; ++i )
 			retarr[i] = candidateset[i+1];
@@ -597,11 +633,9 @@ Datum tkd_query(PG_FUNCTION_ARGS){
         attinmeta = TupleDescGetAttInMetadata(tupdesc);
         funcctx->attinmeta = attinmeta;
 
-		elog(INFO,"before context switch");
         /* MemoryContext switch to old context */
         MemoryContextSwitchTo(oldcontext);
 	}
-	//elog(INFO,"Command freed.\n");
 
 	funcctx = SRF_PERCALL_SETUP();
 
@@ -609,7 +643,6 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 	max_calls = funcctx->max_calls;
 	attinmeta = funcctx->attinmeta;
 	retarr = funcctx->user_fctx;
-	//retstruct = funcctx->user_fctx;
 	
 	if(call_cntr < max_calls){
 		char **values;
@@ -627,21 +660,16 @@ Datum tkd_query(PG_FUNCTION_ARGS){
          * This should be an array of C strings which will
          * be processed later by the type input functions.
          */
-		elog(INFO,"before palloc values");
 		values = (char **)palloc(tupdesc->natts * sizeof(char *));
 
 		for(i = 0; i < tupdesc->natts; ++i ){
 			tuple = tuptable->vals[retarr[call_cntr]];
-			elog(INFO,"retarr[call_cntr]:%d",retarr[call_cntr]);
 			values[i] = (SPI_getvalue(tuple, tupdesc, i+1));
 		}
-		elog(INFO,"data buldt");
 		
-		/* build a return tuple */
-        ret_tuple = BuildTupleFromCStrings(attinmeta, values);
+        ret_tuple = BuildTupleFromCStrings(attinmeta, values); // build a return tuple 
 		
-		/* make the tuple into a datum */
-        result = HeapTupleGetDatum(ret_tuple);
+        result = HeapTupleGetDatum(ret_tuple); // make the tuple into a datum
 		
 		SRF_RETURN_NEXT(funcctx,result);
 	}
