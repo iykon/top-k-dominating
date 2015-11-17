@@ -5,11 +5,13 @@
 #define MAXDIMENTION 50
 
 int N,K,D;
-struct DATASET{
+typedef struct DATASET{
 	int missing[MAXDIMENTION];//1 represents for missing data
 	int value[MAXDIMENTION];//value of data
 	int T[MAXDIMENTION];// the number of values it dominates, say less than it
-}dataset[AMOUNT];
+}Dataset;
+
+Dataset *dataset;
 
 /*
  * function: partition
@@ -297,6 +299,8 @@ void TKD(){
 	int miss,missd[MAXDIMENTION];//the number of missing value
 	int arr[AMOUNT];
 	scanf("%d %d %d",&N,&D,&K);
+	
+	dataset = (Dataset *) malloc (sizeof(Dataset)*N);
 	//printf("initial: %d %d %d\n",N,D,K);
 	miss = 0;
 	//input data set and calculate missing values O(N*D) 

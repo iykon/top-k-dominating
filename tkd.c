@@ -1,16 +1,39 @@
+#include "postgres.h"
+#include "fmgr.h"
+#include "funcapi.h"
+#include "executor/spi.h"
+#include "utils/builtins.h"
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
-#include <time.h>
-#define AMOUNT 20000
-#define MAXDIMENTION 50
+
+#define AMOUNT 100
+#define MAXDIMENTION 10
+
+#define MISS -2147483647
+
+PG_MODULE_MAGIC;
+
+int partition(int a[], int d, int l, int r);
+void quicksort(int a[], int d, int l, int r);
+void perculateUp(int a[], int index[], int pos);
+int popqueue(int a[],int v[]);
+int getscore(int obj,int tau,int missingnumber, int sc);//parameter hasn't been finished,as well as where calls it
+void tkd_exec(void);
+Datum tkd_query(PG_FUNCTION_ARGS);
+
+PG_FUNCTION_INFO_V1(tkd_query);
+
+typedef struct DATASET{
+	int *missing;//1 represents for missing data
+	int *value;//value of data
+	int *T;// the number of values it dominates, say less than it
+}Dataset;
 
 int N,K,D;
-struct DATASET{
-	int missing[MAXDIMENTION];//1 represents for missing data
-	int value[MAXDIMENTION];//value of data
-	int T[MAXDIMENTION];// the number of values it dominates, say less than it
-}dataset[AMOUNT];
-
+int *candidateset;
+Dataset *dataset;
 /*
 partition for quick sort
 find a pivot and sort elements smaller than it and larger than it
@@ -85,20 +108,43 @@ int popqueue(int a[],int v[]){
 }
 
 int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been finished,as well as where calls it
-	int i,j,k,l;
-	int kesai[MAXDIMENTION];//the number of bins
 	double sigma;
+	int i,j,k,l;
 	int sum,lastu,average,bin;
-	int lbound[AMOUNT],ubound[AMOUNT];
-	int ari[AMOUNT],goods[AMOUNT],goodv[AMOUNT];
-	int bitmap[AMOUNT][MAXDIMENTION];
-	int Pi[MAXDIMENTION][AMOUNT],Qi[MAXDIMENTION][AMOUNT],Q[AMOUNT],P[AMOUNT],Qc,Pc;
-	int nonD[AMOUNT];
-	int whichbin[AMOUNT];
-	int incomparable[AMOUNT],incomparablenumber;
-	int tagT[AMOUNT];
 	int pando;
 	int ar,omiga;
+	int *kesai;//the number of bins
+	int *ari,*goods,*goodv;
+	int *lbound,*ubound;
+	int *nonD;
+	int *whichbin;
+	int *incomparable,incomparablenumber;
+	int *tagT;
+	int **bitmap;
+	int **Pi,**Qi,*Q,*P,Qc,Pc;
+	
+	kesai = (int *)palloc(sizeof(int)*D);
+	lbound = (int *)palloc(sizeof(int)*N);
+	ubound = (int *)palloc(sizeof(int)*N);
+	ari = (int *)palloc(sizeof(int)*N);
+	goods = (int *)palloc(sizeof(int)*N);
+	goodv = (int *)palloc(sizeof(int)*N);
+	Q = (int *)palloc(sizeof(int)*N);
+	P = (int *)palloc(sizeof(int)*N);
+	nonD = (int *)palloc(sizeof(int)*N);
+	whichbin = (int *)palloc(sizeof(int)*N);
+	incomparable = (int *)palloc(sizeof(int)*N);
+	tagT = (int *)palloc(sizeof(int)*N);
+	bitmap = (int **)palloc(sizeof(int *)*N);
+	Pi = (int **)palloc(sizeof(int *)*N);
+	Qi = (int **)palloc(sizeof(int *)*N);
+	for(i = 0; i < N; ++i){
+		bitmap[i] = (int *)palloc(sizeof(int)*D);
+		Pi[i] = (int *)palloc(sizeof(int)*D);
+		Qi[i] = (int *)palloc(sizeof(int)*D);
+	}
+		
+	
 	//calculate the incomparable set with obj O(N*D)
 	//incomparable=1 means it is incomparable with obj
 	//incomparablenumber is the total number of incomparable data
@@ -232,7 +278,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			Q[i]=0;
 	}
 	Q[obj]=0;
-	if(sc==k && Qc<=tau)
+	if(sc==K && Qc<=tau)
 		return 0;
 	else{
 		Pc=0;
@@ -281,51 +327,39 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 	}
 }
 
-void TKD(){
+void tkd_exec(){
 	int i,j,k,s,t,tau;
-	int maxscore[AMOUNT],score[AMOUNT];//pruning data
-	int maxbitscore[AMOUNT];//pruning data
-	int queue[AMOUNT];
-	int sc[AMOUNT];//candidate set
-	int miss,missd[MAXDIMENTION];//the number of missing value
-	int arr[AMOUNT];
-	scanf("%d %d %d",&N,&D,&K);
-	//printf("initial: %d %d %d\n",N,D,K);
+	int *maxscore,*score;//pruning data
+	int *maxbitscore;//pruning data
+	int *queue;
+	int miss,*missd;//the number of missing value
+	int *arr;
+
+	maxscore = (int *)palloc(sizeof(int)*N);
+	score = (int *)palloc(sizeof(int)*N);
+	maxbitscore = (int *)palloc(sizeof(int)*N);
+	queue = (int *)palloc(sizeof(int)*N);
+	candidateset = (int *)palloc(sizeof(int)*N);
+	arr = (int *)palloc(sizeof(int)*N);
+	missd = (int *)palloc(sizeof(int)*D);
 	miss = 0;
 	//input data set and calculate missing values O(N*D) 
+	//elog(INFO,"N,D,K: %d %d %d",N, D,K);
 	for(i = 0; i < N; ++i){
-		for(j = 0; j < D; j++){
-			scanf("%d",&dataset[i].value[j]);
+		for(j = 0; j < D; ++j){
+			//elog(INFO,"i j T: %d %d %d",i,j,dataset[i].T[j]);
 			dataset[i].T[j] = N-1;//initialization
 			//here the value smaller than 0 donates missing, but need further update in application
-			if(dataset[i].value[j] < 0)
-				miss += dataset[i].missing[j] = 1;
-			else 
-				dataset[i].missing[j] = 0;
+			miss += dataset[i].missing[j];
 		}
 	}
 	//calculate the number of objects a certain object dominates on a certain dimention O(D*N*N)
 	//printf("missing number: %d\n",miss);
-	//-----------low efficiency---!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	/*for(i = 0; i < D; ++i)
-		for(j = 0; j < N-1; j++)
-			if(!dataset[j].missing[i])
-				for(s = j+1; s < N; ++s)
-					if(!dataset[s].missing[i]){
-						dataset[j].T[i] -= dataset[j].value[i]>dataset[s].value[i];
-						dataset[s].T[i] -= dataset[j].value[i]<dataset[s].value[i];
-					}
-	printf("low eff:\n");
-	for(i=0;i<D;++i){
-		for(j=0;j<N;++j)
-			printf("%d ",dataset[j].T[i]);
-		printf("\n");
-	}*/
 	for(i = 0; i < D; ++i){
 		missd[i] = 0;
 		for(j = 0; j < N; ++j){
 			arr[j] = j;
-			if(dataset[j].value[i]<0)
+			if(dataset[j].missing[i])
 				++missd[i];
 		}
 		quicksort(arr,i,0,N-1);
@@ -355,9 +389,7 @@ void TKD(){
 		for(j = 0;j<N;++j)
 			printf("%d ",dataset[j].T[i]);
 		printf("\n");
-	}
-	return;
-	*/
+	}*/
 	//dataset[i].T[j] is correct
 	//printf("dominants:\n");
 	for(i = 0; i < N; ++i){
@@ -388,7 +420,7 @@ void TKD(){
 	for(i = 1; i <= N; ++i)
 		;//printf("%d ",queue[i]);
 	//printf("\n");
-	tau = -1,sc[0]=0;
+	tau = -1,candidateset[0]=0;
 	while(queue[0]){
 		t = popqueue(queue,maxscore);
 		//printf("dequeue: %d\n",t);//correct dequeue
@@ -396,23 +428,23 @@ void TKD(){
 		if(maxscore[t]<tau)
 			break;
 		else{
-			score[t]=getscore(t,tau,miss,sc[0]);// the parameter in the function getscore is not completed yet
+			score[t]=getscore(t,tau,miss,candidateset[0]);// the parameter in the function getscore is not completed yet
 			//printf("score[%d]: %d\n",t,score[t]);
 			if(score[t]>tau || tau<0){
-				if(sc[0]==K)
-					for(i=1;i<=sc[0];++i){
-						if(score[sc[i]]==tau){
-							sc[i]=t;
+				if(candidateset[0]==K)
+					for(i=1;i<=candidateset[0];++i){
+						if(score[candidateset[i]]==tau){
+							candidateset[i]=t;
 							break;
 						}
 					}
 				else 
-					sc[++sc[0]]=t;
-				if(sc[0]==K){
-					tau=score[sc[1]];
+					candidateset[++candidateset[0]]=t;
+				if(candidateset[0]==K){
+					tau=score[candidateset[1]];
 					for(i=2;i<=K;++i)
-						if(score[sc[i]]<tau)
-							tau=score[sc[i]];
+						if(score[candidateset[i]]<tau)
+							tau=score[candidateset[i]];
 				}
 			}
 		}
@@ -420,11 +452,205 @@ void TKD(){
 	}
 	//printf("\n");
 	//to this step, the index remained in array sc is the result of the tkd query
-	for(i=0;i<K;++i)
+	//output the result
+	/*for(i=0;i<K;++i)
 		printf("%d ",sc[i+1]);
-	printf("\n");
+	printf("\n");*/
+	elog(INFO,"K: %d",K);
+	for(i = 0; i < K; ++i)
+		elog(INFO,"%d ",candidateset[i+1]);
+	pfree(maxscore);
+	pfree(score);
+	pfree(queue);
+	pfree(arr);
+	pfree(missd);
+	pfree(maxbitscore);
 }
 
+Datum tkd_query(PG_FUNCTION_ARGS){
+	char *command;
+	int i, j;
+	int ret, curdm; // return value, current dimetion
+	int call_cntr;
+	int max_calls;
+	int *retarr;
+	//Dataset *retstruct;
+
+	FuncCallContext *funcctx;	// context switch variable
+	AttInMetadata *attinmeta;	// not known------------------------
+	TupleDesc tupdesc;			// tuple descriptor, for getting data
+
+	D = 0;
+	/*
+	this section will be executed only for the first call of function
+	connect to postgres server and execute the first command and get data
+	*/
+	if(SRF_IS_FIRSTCALL()){
+		//elog(INFO,"first call\n");
+		MemoryContext oldcontext;
+	
+		/* create a function context for cross-call persistence */
+		funcctx = SRF_FIRSTCALL_INIT();
+
+		/* switch to memory context appropriate for multiple function calls */
+		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
+		/* get arguments, convert given text object to a C string that can be used by server */
+		command = text_to_cstring(PG_GETARG_TEXT_P(0));
+
+		// arguments error
+		if(!PG_ARGISNULL(1))
+			K = PG_GETARG_INT32(1);
+		else
+			K = 1;
+	
+		// open internal connection to database
+		SPI_connect();
+		// run the SQL command, 0 for no limit of returned row number
+		ret = SPI_exec(command, 0);
+		//save the number of rows
+		N = SPI_processed;
+		dataset = (Dataset *)palloc(sizeof(Dataset)*N);	
+		
+		elog(INFO,"N got: %d\n",N);
+		
+		//some rows are fetched
+		if(ret > 0 && SPI_tuptable != NULL){
+			TupleDesc tupdesc;
+			SPITupleTable *tuptable;
+			HeapTuple tuple;
+			char *type_name;
+
+			//get tuple descriptor
+			tupdesc = SPI_tuptable->tupdesc;
+			tuptable = SPI_tuptable;
+
+			/* for each colum, check type*/
+			for(i = 1; i <= tupdesc->natts; ++i){ 
+				type_name = SPI_gettype(tupdesc, i);// get type of data
+				if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") ==0 )//add float4 or flat8 types if want (2)
+					++D;
+			}
+			elog(INFO,"D got: %d\n",D);
+			
+			/* for each tuple*/
+			for(i = 0; i < N; ++i){
+				dataset[i].missing = (int *)palloc(sizeof(int)*D);
+				dataset[i].value = (int *)palloc(sizeof(int)*D);
+				dataset[i].T = (int *)palloc(sizeof(int)*D);
+				curdm = 0;
+				tuple = tuptable->vals[i];//what is this??????????????????
+
+				/* for each dimention of a tuple */
+				for(j = 1; j <= tupdesc->natts; ++j) {
+					type_name = SPI_gettype(tupdesc, j);
+					if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") == 0 ){
+						// value is missing
+						if(SPI_getvalue(tuple, tupdesc, j) == NULL) {
+							//elog(INFO,"- ");
+							dataset[i].missing[curdm] = 1;
+							dataset[i].value[curdm] = MISS;
+							//elog(INFO,"i j v: %d %d -",i,curdm);
+						}
+						// value is not missing
+						else{
+							//elog(INFO,"%d ", atoi(SPI_getvalue(tuple, tupdesc, j)));
+							dataset[i].missing[curdm] = 0;
+							dataset[i].value[curdm] = atof(SPI_getvalue(tuple, tupdesc, j));
+							//elog(INFO,"i j v: %d %d %d",i,curdm,dataset[i].value[curdm]);
+						}
+						//dataset[i].T[curdm] = N-1;
+						//elog(INFO,"i j T: %d %d %d",i,curdm,dataset[i].T[curdm]);
+						++curdm;
+					}
+				}
+			}
+		}
+		pfree(command);
+
+		tkd_exec();
+		
+		elog(INFO,"after execute tkd.");
+		funcctx->max_calls = K;
+	
+		//allocate local variable retstruct and store the result tuple init
+		/*retstruct = (Dataset *)palloc(sizeof(Dataset)*K);
+		for(i = 0; i < K; ++i ){
+			retstruct[i].value = (int *)palloc(sizeof(int)*D);
+			for(j = 0; j < D; ++j )
+				retstruct[i].value[j] = dataset[candidateset[i+1]].value[j];
+		}
+		*/
+		//funcctx->user_fctx = (int *)palloc(sizeof(int)*K);
+		retarr = (int *)palloc(sizeof(int)*K);
+		for(i = 0; i < K; ++i )
+			retarr[i] = candidateset[i+1];
+		funcctx->user_fctx = retarr;
+
+		if(get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+            ereport(ERROR, (errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("function returning record called in context that cannot accept type record")));
+		
+		/* Generate attribute metadata needed later to produce tuples from raw C strings */
+        attinmeta = TupleDescGetAttInMetadata(tupdesc);
+        funcctx->attinmeta = attinmeta;
+
+		elog(INFO,"before context switch");
+        /* MemoryContext switch to old context */
+        MemoryContextSwitchTo(oldcontext);
+	}
+	//elog(INFO,"Command freed.\n");
+
+	funcctx = SRF_PERCALL_SETUP();
+
+	call_cntr = funcctx->call_cntr;
+	max_calls = funcctx->max_calls;
+	attinmeta = funcctx->attinmeta;
+	retarr = funcctx->user_fctx;
+	//retstruct = funcctx->user_fctx;
+	
+	if(call_cntr < max_calls){
+		char **values;
+		HeapTuple tuple;
+		HeapTuple ret_tuple;
+		Datum result;
+		TupleDesc tupdesc;
+		SPITupleTable *tuptable;
+
+		tupdesc = SPI_tuptable->tupdesc;
+		tuptable = SPI_tuptable;
+		
+		/*
+         * Prepare a values array for building the returned tuple.
+         * This should be an array of C strings which will
+         * be processed later by the type input functions.
+         */
+		elog(INFO,"before palloc values");
+		values = (char **)palloc(tupdesc->natts * sizeof(char *));
+
+		for(i = 0; i < tupdesc->natts; ++i ){
+			tuple = tuptable->vals[retarr[call_cntr]];
+			elog(INFO,"retarr[call_cntr]:%d",retarr[call_cntr]);
+			values[i] = (SPI_getvalue(tuple, tupdesc, i+1));
+		}
+		elog(INFO,"data buldt");
+		
+		/* build a return tuple */
+        ret_tuple = BuildTupleFromCStrings(attinmeta, values);
+		
+		/* make the tuple into a datum */
+        result = HeapTupleGetDatum(ret_tuple);
+		
+		SRF_RETURN_NEXT(funcctx,result);
+	}
+	else{
+		pfree(candidateset);
+		pfree(dataset);
+		SPI_finish();
+		SRF_RETURN_DONE(funcctx);
+	}
+}
+
+/*
 int main(int argc, char **argv){
 	time_t ctm;
 	clock_t start,stop;
@@ -440,4 +666,4 @@ int main(int argc, char **argv){
 	printf("%6.3f\n",(double)(stop-start)/1000);
 	return 0;
 }
-
+*/
