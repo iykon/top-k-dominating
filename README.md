@@ -52,7 +52,11 @@ google it for more details.)
 ### 4. Performing tkd query with warehouse algorithem
 Here is a database sample given in the paper:
 ~~~sql
+<<<<<<< HEAD
 postgres=> select * from tkd;
+=======
+postgres=\# select * from tkd;
+>>>>>>> b248b857487b3bab44fa0200f055d1107600bd62
 
  name | d1 | d2 | d3 | d4
 ------+----+----+----+----
@@ -81,7 +85,11 @@ postgres=> select * from tkd;
 
 Now since we have created tkd function in the server, we can run tkd query as following format:
 ~~~sql
+<<<<<<< HEAD
 postgres=> select * from tkd('select name,d1,d2,d3,d4 from tkd',3) as (name text,d1 int, d2 int, d3 int, d4 int);
+=======
+postgres=\# select * from tkd('select name,d1,d2,d3,d4 from tkd',3) as (name text,d1 int, d2 int, d3 int, d4 int);
+>>>>>>> b248b857487b3bab44fa0200f055d1107600bd62
  name | d1 | d2 | d3 | d4
 ------+----+----+----+----
  C2   |  2 |    |    |  1
