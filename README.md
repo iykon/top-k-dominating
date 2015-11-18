@@ -14,9 +14,9 @@ extension of postgresql, top-k-dominating query of incomplete database
 for ubuntu:
 
 ~~~terminal
-  sudo apt-get install postgresql-9.4
-  sudo apt-get install postgresql-server-dev-9.4
-  sudo apt-get install postgresql-contrib-9.4
+  sudo apt-get install postgresql-9.3
+  sudo apt-get install postgresql-contrib-9.3
+  sudo apt-get install postgresql-server-dev-9.3
 ~~~
 
 for mac:
