@@ -1,1 +1,0 @@
-select * from tkd('select name,rating_no,rating_five_star from restaurant_test',5) as (name text,rating_no int, rating_five_star int);
