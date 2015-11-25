@@ -1,4 +1,3 @@
-
 #include "postgres.h"
 #include "fmgr.h"
 #include "funcapi.h"
@@ -34,20 +33,19 @@ typedef struct DATASET{
 
 int N,D,K; // number of objects, number of dimentions, top K as in query
 int *candidateset; // candidate set
-	int *maxscore,*score; // as define in paper, pruning data
-	int *queue; // priority queue, or heap
-	int miss,*missd; // the number of missing value
-	int *arr; // array
-	int *kesai; // ξ, the number of bins for each dimention
-	int *ari; // all existing values in a dimention
-	int *goods,*goodv; // number and value of distinguishing values
-	int *lbound,*ubound; // lower value of a bin and upper value of a bin, respectively, included
-	int *nonD; // as defined in paper
-	int *whichbin; // store which bin does a value belong to
-	int *incomparable,incomparablenumber; // set of incomparable values, number of incomparable values, respectively
-	int *tagT; // 
-	//int **bitmap; // as define in paper, the bitmap of all objects
-	int **Pi,**Qi,*Q,*P,Qc,Pc; // as defined in paper
+int *maxscore,*score; // as define in paper, pruning data
+int *queue; // priority queue, or heap
+int miss,*missd; // the number of missing value
+int *arr; // array
+int *kesai; // ξ, the number of bins for each dimention
+int *ari; // all existing values in a dimention
+int *goods,*goodv; // number and value of distinguishing values
+int *lbound,*ubound; // lower value of a bin and upper value of a bin, respectively, included
+int *nonD; // as defined in paper
+int *whichbin; // store which bin does a value belong to
+int *incomparable,incomparablenumber; // set of incomparable values, number of incomparable values, respectively
+int *tagT; // 
+int **Pi,**Qi,*Q,*P,Qc,Pc; // as defined in paper
 Dataset *dataset; // date set of all objects
 
 ///////////////////////////////////////////////////////////////////////
@@ -187,11 +185,9 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 	int omiga;
 	int retval;
 	
-		
 	/*
 	 *calculate the incomparable set with obj O(N*D)
 	 */
-	//elog(INFO,"--------------");
 	incomparablenumber=0;
 	for(i=0;i<N;++i){
 		for(j=0;j<D;++j)
@@ -199,17 +195,13 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				break;
 		incomparablenumber+=incomparable[i]=(j==D);
 	}
-	//elog(INFO,"incomp:%d",incomparablenumber);
 	/*
 	 * calculate the bin size of each bin as well as the domain of each bin
 	 * use a method of greedy
 	 * when the sum of all values approach average value, go to next bin
 	 */
 	sigma = (missingnumber+0.0)/(N*D);
-	//elog(INFO,"sigma %f",sigma);
 	for(i=0;i<D;i++){
-		//elog(INFO,"Dimention %d",i);
-		//elog(INFO,"current i of D: %d %d",i,D);
 		ari[0]=0; // put all existing values in ari
 		for(j=0;j<N;++j)
 			if(!dataset[j].missing[i])
@@ -224,29 +216,22 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				goods[++goods[0]]=1;
 				goodv[goods[0]]=dataset[ari[j]].value[i];
 			}
-		//elog(INFO,"goods[0]: %d",goods[0]);
-		//elog(INFO,"goods: %d %d %d %d %d",goods[1],goods[2],goods[3],goods[4],goods[5]);
-		//elog(INFO,"goodv: %d %d %d %d %d",goodv[1],goodv[2],goodv[3],goodv[4],goodv[5]);
 		kesai[i]=(int)(sqrt(sigma*N/(log(sigma*N)-1)));
-		//elog(INFO,"here : %f %d %d",sigma,kesai[i],goods[0]);
 		if(kesai[i]<=0)
 			kesai[i] = goods[0];
 		average=(int)(ari[0]/kesai[i]);
 		if(goods[0]<=kesai[i]){ //if goods are less than bins, each bin contains a single value
-			//elog(INFO,"goods are less than bins");
 			kesai[i]=goods[0];
 			bin=goods[0];
 			for(j=1;j<=goods[0];++j)
 				lbound[j]=ubound[j]=goodv[j];
 		}
 		else{
-			//elog(INFO,"ggods are no less than bins");
 			sum=0,bin=0,lastu=1;
 			for(j=1;j<=goods[0];++j)
 				if(bin==kesai[i]-1){ // this is the last bin
 					lbound[bin]=goodv[lastu];
 					ubound[bin]=goodv[goods[0]];
-					//elog(INFO,"bin: %d",bin);
 					j=goods[0];
 					++bin;
 					break;
@@ -275,28 +260,18 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 					++bin;
 				}
 		}
-		//elog(INFO,"%d bins",kesai[i]);
-		//elog(INFO,"lower: %d %d %d %d %d",lbound[1],lbound[2],lbound[3],lbound[4],lbound[5]);
-		//elog(INFO,"upper: %d %d %d %d %d",ubound[1],ubound[2],ubound[3],ubound[4],ubound[5]);
 		/*
-		 * get bitmap of the data
+		 * identify which bin is each object in
 		 */
 		for(j=0;j<N;++j){
 			if(dataset[j].missing[i]){
 				whichbin[j]=0;
-				/*for(k=0;k<=kesai[i];++k)
-					bitmap[j][k]=1;*/
 			}
 			else{
 				l=0;
 				while(dataset[j].value[i]>ubound[++l]);
 				whichbin[j]=l;
-				/*for(k=0;k<l;++k)
-					bitmap[j][k]=1;
-				for(;k<=kesai[i];++k)
-					bitmap[j][k]=0;*/
 			}
-			//elog(INFO,"bitmap %d%d%d%d%d%d",bitmap[j][0],bitmap[j][1],bitmap[j][2],bitmap[j][3],bitmap[j][4],bitmap[j][5]);
 		}
 
 		/*
@@ -308,13 +283,9 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 		}
 		else{
 			for(j=0;j<N;++j){
-				//Qi[i][j]=bitmap[obj][whichbin[obj]];
-				//Pi[i][j]=bitmap[obj][whichbin[obj]+1];
 				Qi[i][j]=whichbin[obj]<=whichbin[j];
 				Pi[i][j]=whichbin[obj]<whichbin[j];
 			}
-			//elog(INFO,"Qi:%d%d%d%d%d",Qi[i][0],Qi[i][1],Qi[i][2],Qi[i][3],Qi[i][4]);
-			//elog(INFO,"Pi:%d%d%d%d%d",Pi[i][0],Pi[i][1],Pi[i][2],Pi[i][3],Pi[i][4]);
 		}
 	}
 
@@ -334,11 +305,8 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			Q[i]=0;
 	}
 	Q[obj]=0;
-	//elog(INFO,"Qc %d",Qc);
-	if(sc==K && Qc<=tau){
+	if(sc==K && Qc<=tau)
 		retval = 0;
-		//elog(INFO,"Qc is %d and return value is 0!",Qc);
-	}
 	else{
 		Pc=0;
 		for(i=0;i<N;++i){
@@ -387,7 +355,6 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 			Q[nonD[i]]=0;
 		for(i=0;i<N;++i)
 			ar+=(Q[i]==1 && P[i]==0);
-		//elog(INFO,"ar:%d omiga:%d",ar,omiga);
 		retval = ar+omiga;
 	}
 	/*
@@ -403,11 +370,6 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 	pfree(whichbin);
 	pfree(incomparable);
 	pfree(tagT);
-	for(i = 0; i < N; ++i){
-		free(bitmap[i]);
-		free(Pi[i]);
-		free(Qi[i]);
-	}
 	*/
 	return retval;
 }
@@ -425,10 +387,6 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 void tkd_exec(){
 	int i,j,k,s,t,tau;
 	int enter = 0;
-			//elog(INFO,"e1");
-
-	//maxbitscore = (int *)palloc(sizeof(int)*N);
-			//elog(INFO,"e2");
 
 	miss = 0;
 	/*
@@ -441,14 +399,9 @@ void tkd_exec(){
 		}
 	}
 
-	for(i = 0; i < N; ++i)
-	{
-		//elog(INFO,"%d %d",dataset[i].value[0],dataset[i].value[1]);
-	}
 	/*
 	 * calculate the number of objects a certain object dominates on a certain dimention O(D*N*logN)
 	 */
-			//elog(INFO,"e3");
 	for(i = 0; i < D; ++i){
 		missd[i] = 0;
 		for(j = 0; j < N; ++j){
@@ -469,7 +422,6 @@ void tkd_exec(){
 		}
 	}
 
-			//elog(INFO,"e4");
 	/*
 	 * calculate maxscore O(N*D)
 	 */
@@ -492,7 +444,6 @@ void tkd_exec(){
 	/*
 	 * maintain a candidate set with max scores and using pruning
 	 */
-			//elog(INFO,"e5");
 	tau = -1,candidateset[0]=0;
 	while(queue[0]){
 		t = popqueue(queue,maxscore);
@@ -501,7 +452,6 @@ void tkd_exec(){
 			break;
 		else{
 			score[t]=getscore(t,tau,miss,candidateset[0]); // bitscore pruning
-			//elog(INFO,"K: %d, maxscore[t]: %d, tau:%d,score[t]:%d,enter: %d",K,maxscore[t],tau,score[t],++enter);
 			if(score[t]>tau || tau<0){
 				if(candidateset[0]==K){
 					for(i=1;i<=candidateset[0];++i){
@@ -520,23 +470,18 @@ void tkd_exec(){
 					for(i=2;i<=K;++i)
 						if(score[candidateset[i]]<tau)
 							tau=score[candidateset[i]];
-					//elog(INFO,"candidate set full. Tau is %d",tau);
 				}
-				/*if(tau == 0){
-					//elog(ERROR,"fuck!");
-					exit(1);
-				}*/
 			}
 		}
 		
 	}
-	//elog(INFO,"e6");
+	/*
 	pfree(maxscore);
 	pfree(score);
 	pfree(queue);
 	pfree(arr);
 	pfree(missd);
-	//elog(INFO,"e7");
+	*/
 }
 
 ///////////
@@ -557,7 +502,6 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 	int call_cntr;
 	int max_calls;
 	int *retarr;
-	//Dataset *retstruct;
 
 	FuncCallContext *funcctx;	// context switch variable
 	AttInMetadata *attinmeta;	// not known------------------------
@@ -599,14 +543,10 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 		ret = SPI_exec(command, 0); // run the SQL command, 0 for no limit of returned row number
 		
 		N = SPI_processed; // save the number of rows
-		//N = 2050;
 		
-		//elog(INFO,"N:%d",N);
-
 		dataset = (Dataset *)palloc(sizeof(Dataset)*(N+2));	
 		candidateset = (int *)palloc(sizeof(int)*(N+2));
 		if(dataset == NULL){
-			//elog(ERROR,"palloc failed");
 			exit(1);
 		}
 		
@@ -633,43 +573,39 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 				if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") ==0 )//add float4 or flat8 types if want (2)
 					++D;
 			}
-			//elog(INFO,"D: %d",D);
 			
 			/* 
 			 * for each tuple
+			 * and palloc all memory needed
 			 * */
-			//elog(INFO,"2");
-	kesai = (int *)palloc(sizeof(int)*(N+2));
-	lbound = (int *)palloc(sizeof(int)*(N+2));
-	ubound = (int *)palloc(sizeof(int)*(N+2));
-	ari = (int *)palloc(sizeof(int)*(N+2));
-	goods = (int *)palloc(sizeof(int)*(N+2));
-	goodv = (int *)palloc(sizeof(int)*(N+2));
-	Q = (int *)palloc(sizeof(int)*(N+2));
-	P = (int *)palloc(sizeof(int)*(N+2));
-	nonD = (int *)palloc(sizeof(int)*(N+2));
-	whichbin = (int *)palloc(sizeof(int)*(N+2));
-	incomparable = (int *)palloc(sizeof(int)*(N+2));
-	tagT = (int *)palloc(sizeof(int)*(N+2));
-	//bitmap = (int **)palloc(sizeof(int *)*(N+2));
-	Pi = (int **)palloc(sizeof(int *)*(N+2));
-	Qi = (int **)palloc(sizeof(int *)*(N+2));
-	for(i = 0; i < N; ++i){
-		//bitmap[i] = (int *)palloc(sizeof(int)*(N+2));
-		Pi[i] = (int *)palloc(sizeof(int)*(N+2));
-		Qi[i] = (int *)palloc(sizeof(int)*(N+2));
-	}
-	arr = (int *)palloc(sizeof(int)*(N+2));
-	score = (int *)palloc(sizeof(int)*(N+2));
-	queue = (int *)palloc(sizeof(int)*(N+2));
-	missd = (int *)palloc(sizeof(int)*(D+2));
-	maxscore = (int *)palloc(sizeof(int)*(N+2));
+			kesai = (int *)palloc(sizeof(int)*(N+2));
+			lbound = (int *)palloc(sizeof(int)*(N+2));
+			ubound = (int *)palloc(sizeof(int)*(N+2));
+			ari = (int *)palloc(sizeof(int)*(N+2));
+			goods = (int *)palloc(sizeof(int)*(N+2));
+			goodv = (int *)palloc(sizeof(int)*(N+2));
+			Q = (int *)palloc(sizeof(int)*(N+2));
+			P = (int *)palloc(sizeof(int)*(N+2));
+			nonD = (int *)palloc(sizeof(int)*(N+2));
+			whichbin = (int *)palloc(sizeof(int)*(N+2));
+			incomparable = (int *)palloc(sizeof(int)*(N+2));
+			tagT = (int *)palloc(sizeof(int)*(N+2));
+			Pi = (int **)palloc(sizeof(int *)*(N+2));
+			Qi = (int **)palloc(sizeof(int *)*(N+2));
+			for(i = 0; i < N; ++i){
+				Pi[i] = (int *)palloc(sizeof(int)*(N+2));
+				Qi[i] = (int *)palloc(sizeof(int)*(N+2));
+			}
+			arr = (int *)palloc(sizeof(int)*(N+2));
+			score = (int *)palloc(sizeof(int)*(N+2));
+			queue = (int *)palloc(sizeof(int)*(N+2));
+			missd = (int *)palloc(sizeof(int)*(D+2));
+			maxscore = (int *)palloc(sizeof(int)*(N+2));
 			for(i = 0; i < N; ++i){
 				dataset[i].missing = (int *)palloc(sizeof(int)*(D+2));
 				dataset[i].value = (int *)palloc(sizeof(int)*(D+2));
 				dataset[i].T = (int *)palloc(sizeof(int)*(D+2));
 				if(dataset[i].missing == NULL || dataset[i].value == NULL || dataset[i].T == NULL){
-					//elog(ERROR,"palloc failed");
 					exit(1);
 				}
 				curdm = 0;
@@ -694,12 +630,9 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 				}
 			}
 		}
-			//elog(INFO,"3");
 		pfree(command);
-			//elog(INFO,"4");
 
 		tkd_exec(); // call to execute tkd query
-			//elog(INFO,"5");
 		
 		funcctx->max_calls = K;
 	
@@ -708,10 +641,8 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 		 * */
 		retarr = (int *)palloc(sizeof(int)*(K+2));
 		if(retarr == NULL){
-			//elog(ERROR,"palloc failed");
 			exit(1);
 		}
-			//elog(INFO,"6");
 		for(i = 0; i < K; ++i )
 			retarr[i] = candidateset[i+1];
 		funcctx->user_fctx = retarr;
@@ -725,7 +656,6 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 
         /* MemoryContext switch to old context */
         MemoryContextSwitchTo(oldcontext);
-			//elog(INFO,"7");
 	}
 
 	funcctx = SRF_PERCALL_SETUP();
@@ -734,7 +664,6 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 	max_calls = funcctx->max_calls;
 	attinmeta = funcctx->attinmeta;
 	retarr = funcctx->user_fctx;
-			//elog(INFO,"8 %d %d",call_cntr, max_calls);
 	
 	if(call_cntr < max_calls){
 		char **values;
@@ -752,15 +681,11 @@ Datum tkd_query(PG_FUNCTION_ARGS){
          * This should be an array of C strings which will
          * be processed later by the type input functions.
          */
-			//elog(INFO,"8.5");
 		values = (char **)palloc((tupdesc->natts+2) * sizeof(char *));
-			//elog(INFO,"8.6");
 		values = (char **)palloc((tupdesc->natts+2) * sizeof(char *));
 		if(values == NULL){
-			//elog(ERROR,"palloc failed");
 			exit(1);
 		}
-			//elog(INFO,"9");
 
 		for(i = 0; i < tupdesc->natts; ++i ){
 			tuple = tuptable->vals[retarr[call_cntr]];
@@ -772,32 +697,9 @@ Datum tkd_query(PG_FUNCTION_ARGS){
         result = HeapTupleGetDatum(ret_tuple); // make the tuple into a datum
 		
 		SRF_RETURN_NEXT(funcctx,result);
-			//elog(INFO,"10");
 	}
 	else{
-		//elog(INFO,"11");
-		//pfree(candidateset);
-		//pfree(dataset);
-	/*pfree(kesai);
-	pfree(lbound);
-	pfree(ubound);
-	pfree(ari);
-	pfree(goods);
-	pfree(goodv);
-	pfree(Q);
-	pfree(P);
-	pfree(nonD);
-	pfree(whichbin);
-	pfree(incomparable);
-	pfree(tagT);
-	for(i = 0; i < N; ++i){
-		free(bitmap[i]);
-		free(Pi[i]);
-		free(Qi[i]);
-	}*/
 		SPI_finish();
-		//elog(INFO,"12");
 		SRF_RETURN_DONE(funcctx);
-		//elog(INFO,"13");
 	}
 }
