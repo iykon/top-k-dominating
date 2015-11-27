@@ -8,7 +8,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define MISS -2147483647
+//#define T1MISS -2147483647
+//#define T2MISS 2147483647 
 
 PG_MODULE_MAGIC;
 
@@ -37,9 +38,9 @@ int *candidateset; // candidate set
 int *maxscore,*score; // as define in paper, pruning data
 int *queue; // priority queue, or heap
 int miss,*missd; // the number of missing value
-int *arr; // array
+int **arr; // array
 int *kesai; // ξ, the number of bins for each dimention
-int *ari; // all existing values in a dimention
+//int *ari; // all existing values in a dimention
 int *goods,*goodv; // number and value of distinguishing values
 int *lbound,*ubound; // lower value of a bin and upper value of a bin, respectively, included
 int *nonD; // as defined in paper
@@ -199,9 +200,7 @@ int popqueue(int a[],int v[]){
  */
 ////////////////////////////////////////////////////////////////////////////////
 int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been finished,as well as where calls it
-	double sigma; // σ, missing rate
-	int i,j,l;
-	int sum,lastu,average,bin;
+	int i,j;
 	int pando;
 	int ar; 
 	int omiga;
@@ -217,85 +216,7 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
 				break;
 		incomparablenumber+=incomparable[i]=(j==D);
 	}
-	/*
-	 * calculate the bin size of each bin as well as the domain of each bin
-	 * use a method of greedy
-	 * when the sum of all values approach average value, go to next bin
-	 */
-	sigma = (missingnumber+0.0)/(N*D);
 	for(i=0;i<D;i++){
-		ari[0]=0; // put all existing values in ari
-		for(j=0;j<N;++j)
-			if(!dataset[j].missing[i])
-				ari[++ari[0]]=j;
-		quicksort(ari,i,1,ari[0]);
-		goods[0]=goods[1]=1; 
-		goodv[1]=dataset[ari[1]].value[i];
-		for(j=2;j<=ari[0];++j)//calculate the number of a certain value
-			if(dataset[ari[j]].value[i]==dataset[ari[j-1]].value[i]) // calculate the number of an identical value
-				++goods[goods[0]];
-			else{
-				goods[++goods[0]]=1;
-				goodv[goods[0]]=dataset[ari[j]].value[i];
-			}
-		kesai[i]=(int)(sqrt(sigma*N/(log(sigma*N)-1)));
-		if(kesai[i]<=0)
-			kesai[i] = goods[0];
-		average=(int)(ari[0]/kesai[i]);
-		if(goods[0]<=kesai[i]){ //if goods are less than bins, each bin contains a single value
-			kesai[i]=goods[0];
-			bin=goods[0];
-			for(j=1;j<=goods[0];++j)
-				lbound[j]=ubound[j]=goodv[j];
-		}
-		else{
-			sum=0,bin=0,lastu=1;
-			for(j=1;j<=goods[0];++j)
-				if(bin==kesai[i]-1){ // this is the last bin
-					lbound[bin]=goodv[lastu];
-					ubound[bin]=goodv[goods[0]];
-					j=goods[0];
-					++bin;
-					break;
-				}
-				else if(sum>average){ // sum is over average, go to next bin
-					sum=goods[j];
-					lbound[bin]=goodv[lastu];
-					ubound[bin]=goodv[j-1];
-					lastu=j;
-					++bin;
-				}
-				else if(sum+goods[j]<average)
-					sum+=goods[j];
-				else if((average-sum)<=(sum+goods[j]-average)){ // when putting a value into a bin exactly over the sum, calculate the difference to decide put in into current bin or next bin
-						sum=goods[j];
-						ubound[bin]=goodv[j-1];
-						lbound[bin]=goodv[lastu];
-						lastu=j;
-						++bin;
-				}
-				else{
-					sum = 0;
-					ubound[bin]=goodv[j];
-					lbound[bin]=goodv[lastu];
-					lastu=j+1;
-					++bin;
-				}
-		}
-		/*
-		 * identify which bin is each object in
-		 */
-		for(j=0;j<N;++j){
-			if(dataset[j].missing[i]){
-				whichbin[j]=0;
-			}
-			else{
-				l=0;
-				while(dominates(dataset[j].value[i],ubound[++l]) == -1);
-				whichbin[j]=l;
-			}
-		}
-
 		/*
 		 * establish Qi,Pi
 		 */
@@ -407,7 +328,9 @@ int getscore(int obj,int tau,int missingnumber, int sc){//parameter hasn't been 
  */
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void tkd_exec(){
-	int i,j,k,s,t,tau;
+	int i,j,k,l,s,t,tau;
+	int sum,lastu,average,bin;
+	double sigma; // σ, missing rate
 
 	miss = 0;
 	/*
@@ -419,26 +342,32 @@ void tkd_exec(){
 			miss += dataset[i].missing[j];
 		}
 	}
-
 	/*
-	 * calculate the number of objects a certain object dominates on a certain dimention O(D*N*logN)
+	 * calculate the bin size of each bin as well as the domain of each bin
+	 * use a method of greedy
+	 * when the sum of all values approach average value, go to next bin
 	 */
 	for(i = 0; i < D; ++i){
 		missd[i] = 0;
+		arr[i] = (int *)palloc(sizeof(int)*(N+2));
+		arr[i][0] = 0;
 		for(j = 0; j < N; ++j){
-			arr[j] = j;
 			if(dataset[j].missing[i])
 				++missd[i];
+			else
+				arr[i][++arr[i][0]] = j;
 		}
-		quicksort(arr,i,0,N-1);
-		j = N-1;
-		while(j>=missd[i]){
-			k = j;
-			while(k>0 && dataset[arr[j]].value[i]==dataset[arr[--k]].value[i]);
-			if(k==0)
+		quicksort(arr[i],i,1,arr[i][0]);
+		/*
+		* calculate the number of objects a certain object dominates on a certain dimention O(D*N*logN)
+		*/
+		j = arr[i][0];
+		while(j>=1){
+			k = j-1;
+			while(k>0 && dataset[arr[i][j]].value[i]==dataset[arr[i][k]].value[i])
 				--k;
 			for(s = k+1; s <= j; ++s)
-				dataset[arr[s]].T[i] = missd[i]+N-k-2;
+				dataset[arr[i][s]].T[i] = N-j;
 			j = k;
 		}
 	}
@@ -462,6 +391,82 @@ void tkd_exec(){
 	for(i = 1; i <= N/2; ++i)
 		perculateUp(maxscore,queue,i);
 
+	//elog(INFO,".......");
+
+	sigma = (miss+0.0)/(N*D);
+	for(i = 0; i < D; ++i){
+		/*ari[0]=0; // put all existing values in ari
+		for(j=0;j<N;++j)
+			if(!dataset[j].missing[i])
+				ari[++ari[0]]=j;
+		quicksort(ari,i,1,ari[0]);*/
+		goods[0]=goods[1]=1; 
+		goodv[1]=dataset[arr[i][1]].value[i];
+		for(j=2;j<=arr[i][0];++j)//calculate the number of a certain value
+			if(dataset[arr[i][j]].value[i]==dataset[arr[i][j-1]].value[i]) // calculate the number of an identical value
+				++goods[goods[0]];
+			else{
+				goods[++goods[0]]=1;
+				goodv[goods[0]]=dataset[arr[i][j]].value[i];
+			}
+		kesai[i]=(int)(sqrt(sigma*N/(log(sigma*N)-1)));
+		if(kesai[i]<=0)
+			kesai[i] = goods[0];
+		average=(int)(arr[i][0]/kesai[i]);
+		if(goods[0]<=kesai[i]){ //if goods are less than bins, each bin contains a single value
+			kesai[i]=goods[0];
+			bin=goods[0];
+			for(j=1;j<=goods[0];++j)
+				lbound[j]=ubound[j]=goodv[j];
+		}
+		else{
+			sum=0,bin=0,lastu=1;
+			for(j=1;j<=goods[0];++j)
+				if(bin==kesai[i]-1){ // this is the last bin
+					lbound[bin]=goodv[lastu];
+					ubound[bin]=goodv[goods[0]];
+					j=goods[0];
+					++bin;
+					break;
+				}
+				else if(sum>average){ // sum is over average, go to next bin
+					sum=goods[j];
+					lbound[bin]=goodv[lastu];
+					ubound[bin]=goodv[j-1];
+					lastu=j;
+					++bin;
+				}
+				else if(sum+goods[j]<average)
+					sum+=goods[j];
+				else if((average-sum)<=(sum+goods[j]-average)){ // when putting a value into a bin exactly over the sum, calculate the difference to decide put in into current bin or next bin
+						sum=goods[j];
+						ubound[bin]=goodv[j-1];
+						lbound[bin]=goodv[lastu];
+						lastu=j;
+						++bin;
+				}
+				else{
+					sum = 0;
+					ubound[bin]=goodv[j];
+					lbound[bin]=goodv[lastu];
+					lastu=j+1;
+					++bin;
+				}
+		}
+		/*
+		 * identify which bin is each object in
+		 */
+		for(j=0;j<N;++j){
+			if(dataset[j].missing[i]){
+				whichbin[j]=0;
+			}
+			else{
+				l=0;
+				while(dominates(dataset[j].value[i],ubound[++l]) == -1);
+				whichbin[j]=l;
+			}
+		}
+	}
 	/*
 	 * maintain a candidate set with max scores and using pruning
 	 */
@@ -606,7 +611,7 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 			kesai = (int *)palloc(sizeof(int)*(N+2));
 			lbound = (int *)palloc(sizeof(int)*(N+2));
 			ubound = (int *)palloc(sizeof(int)*(N+2));
-			ari = (int *)palloc(sizeof(int)*(N+2));
+			//ari = (int *)palloc(sizeof(int)*(N+2));
 			goods = (int *)palloc(sizeof(int)*(N+2));
 			goodv = (int *)palloc(sizeof(int)*(N+2));
 			Q = (int *)palloc(sizeof(int)*(N+2));
@@ -621,7 +626,7 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 				Pi[i] = (int *)palloc(sizeof(int)*(N+2));
 				Qi[i] = (int *)palloc(sizeof(int)*(N+2));
 			}
-			arr = (int *)palloc(sizeof(int)*(N+2));
+			arr = (int **)palloc(sizeof(int)*(D+2));
 			score = (int *)palloc(sizeof(int)*(N+2));
 			queue = (int *)palloc(sizeof(int)*(N+2));
 			missd = (int *)palloc(sizeof(int)*(D+2));
@@ -644,7 +649,10 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 					if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") == 0 ){
 						if(SPI_getvalue(tuple, tupdesc, j) == NULL) { // value is missing
 							dataset[i].missing[curdm] = 1;
-							dataset[i].value[curdm] = MISS;
+							/*if(dominating_type == 0)
+								dataset[i].value[curdm] = T1MISS;
+							else
+								dataset[i].value[curdm] = T2MISS;*/
 						}
 						else{ // value is not missing
 							dataset[i].missing[curdm] = 0;
