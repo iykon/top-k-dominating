@@ -8,22 +8,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "tkd_qsort.h"
+#include "tkd_queue.h"
+#include "tkd_algorithms.h"
 
-#define MISS -2147483647
+//#define T1MISS -2147483647
+//#define T2MISS 2147483647 
 
 PG_MODULE_MAGIC;
 
 /*
  * pre declaration, descriptions are displayed below
  */
-int dominates(int x, int y);
-int partition(int a[], int d, int l, int r);
-void quicksort(int a[], int d, int l, int r);
-void perculateUp(int a[], int index[], int pos);
-int popqueue(int a[],int v[]);
-int getscore(int obj,int tau,int missingnumber, int sc);
-void tkd_exec(void);
-Datum tkd_query(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(tkd_query); // version 1 function set to postgresql server
 
@@ -38,9 +34,9 @@ int *candidateset; // candidate set
 int *maxscore,*score; // as define in paper, pruning data
 int *queue; // priority queue, or heap
 int miss,*missd; // the number of missing value
-int *arr; // array
+int **arr; // array
 int *kesai; // ξ, the number of bins for each dimention
-int *ari; // all existing values in a dimention
+//int *ari; // all existing values in a dimention
 int *goods,*goodv; // number and value of distinguishing values
 int *lbound,*ubound; // lower value of a bin and upper value of a bin, respectively, included
 int *nonD; // as defined in paper
@@ -51,17 +47,6 @@ int **Pi,**Qi,*Q,*P,Qc,Pc; // as defined in paper
 int dominating_type;
 Dataset *dataset; // date set of all objects
 
-///////////
-/*
- * name: tkd_query
- * author: Weida Pan
- * description: a function integrated with postgresql server
- * 				execute user query, read all tuples and execute tkd query
- * 				output the result tuples as in postgresql
- * arguments: PG_FUNCTION_ARGS -- postgres function arguments, infomation about tuples are included
- * return value: postgresql data type
- */
-///////////
 Datum tkd_query(PG_FUNCTION_ARGS){
 	char *command;
 	int i, j;
@@ -152,7 +137,7 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 			kesai = (int *)palloc(sizeof(int)*(N+2));
 			lbound = (int *)palloc(sizeof(int)*(N+2));
 			ubound = (int *)palloc(sizeof(int)*(N+2));
-			ari = (int *)palloc(sizeof(int)*(N+2));
+			//ari = (int *)palloc(sizeof(int)*(N+2));
 			goods = (int *)palloc(sizeof(int)*(N+2));
 			goodv = (int *)palloc(sizeof(int)*(N+2));
 			Q = (int *)palloc(sizeof(int)*(N+2));
@@ -167,7 +152,7 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 				Pi[i] = (int *)palloc(sizeof(int)*(N+2));
 				Qi[i] = (int *)palloc(sizeof(int)*(N+2));
 			}
-			arr = (int *)palloc(sizeof(int)*(N+2));
+			arr = (int **)palloc(sizeof(int)*(D+2));
 			score = (int *)palloc(sizeof(int)*(N+2));
 			queue = (int *)palloc(sizeof(int)*(N+2));
 			missd = (int *)palloc(sizeof(int)*(D+2));
@@ -190,7 +175,10 @@ Datum tkd_query(PG_FUNCTION_ARGS){
 					if(strcmp(type_name,"int4") == 0 || strcmp(type_name,"int2") == 0 ){
 						if(SPI_getvalue(tuple, tupdesc, j) == NULL) { // value is missing
 							dataset[i].missing[curdm] = 1;
-							dataset[i].value[curdm] = MISS;
+							/*if(dominating_type == 0)
+								dataset[i].value[curdm] = T1MISS;
+							else
+								dataset[i].value[curdm] = T2MISS;*/
 						}
 						else{ // value is not missing
 							dataset[i].missing[curdm] = 0;
