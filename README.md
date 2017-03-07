@@ -2,16 +2,16 @@
 extension of postgresql, top-k-dominating query of incomplete database
 
 ## Algorithm Discription
-* Please see Mr. Gao's paper: [Top-k Dominating Queries on Incomplete Data] (https://github.com/iykon/top-k-dominating/blob/master/TKD-algorithm.pdf)
+* Please refer to Dr. Gao's paper: [Top-k Dominating Queries on Incomplete Data] (https://github.com/iykon/top-k-dominating/blob/master/TKD-algorithm.pdf)
 
 ## Testing Environment
-  * Operation System: Mac OSX / Ubuntu 14.04
+  * Operating system: Mac OSX / Ubuntu 14.04
   * PostgreSQL version: PostgreSQL 9.3
 
 ## How to use?
-### 0. Install postgre environment fist
+### 0. Install postgre environment first
 
-for ubuntu:
+For Ubuntu:
 
 ~~~terminal
   sudo apt-get install postgresql-9.3
@@ -19,7 +19,7 @@ for ubuntu:
   sudo apt-get install postgresql-server-dev-9.3
 ~~~
 
-for mac:
+For Mac:
 
 ~~~terminal
   brew install postgresql
@@ -49,7 +49,7 @@ google it for more details.)
 
 3. You will see two "CREATE FUNCTION" outputed if everything ok
 
-### 4. Performing tkd query with warehouse algorithem
+### 4. Perform tkd query with warehouse algorithm
 Here is a database sample given in the paper:
 ~~~sql
 postgres=> select * from tkd;
@@ -79,7 +79,7 @@ postgres=> select * from tkd;
 (20 rows)
 ~~~
 
-Now since we have created tkd function in the server, we can run tkd query as following format:
+Now since we have created tkd function in the server, we can run tkd query in the following format:
 ~~~sql
 postgres=> select * from tkd('select name,d1,d2,d3,d4 from tkd',3,0) as (name text,d1 int, d2 int, d3 int, d4 int);
  name | d1 | d2 | d3 | d4
@@ -93,12 +93,12 @@ postgres=> select * from tkd('select name,d1,d2,d3,d4 from tkd',3,0) as (name te
 
 Note that tkd function needs three parameters:
 
-1. the selection clause, can not be NULL (text type)
+1. the selection clause, which can not be NULL (text type)
 2. k (integer type)
-3. dominating method(integer type). Zero indicates a dominates b if a is smaller than b, non-zero number indicates a dominates b if a is larger than b. Notice that this parameter is optional, leaving unspecified indicating zero 
+3. dominating method(integer type). Zero indicates a dominates b if a is smaller than b, non-zero number indicates a dominates b if a is larger than b. Notice that this parameter is optional and the default value is zero 
 
 (ps: you should also provide the output format using as clause, otherwise it won't work).
 
 ## Contact us
-1. If you have any question about this paper, you can contact Mr. Gao: gaoyj@zju.edu.cn
+1. If you have any question about this paper, you can contact Dr. Gao: gaoyj@zju.edu.cn
 2. The projet is coded by Weida Pan (Iykon), feel free to ask any questions: iykoncoc001@gmail.com
