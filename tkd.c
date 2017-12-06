@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "tkd_qsort.h"
+#include "tkd_queue.h"
+#include "tkd_algorithms.h"
 
 //#define T1MISS -2147483647
 //#define T2MISS 2147483647 
@@ -17,14 +20,6 @@ PG_MODULE_MAGIC;
 /*
  * pre declaration, descriptions are displayed below
  */
-int dominates(int x, int y);
-int partition(int a[], int d, int l, int r);
-void quicksort(int a[], int d, int l, int r);
-void perculateUp(int a[], int index[], int pos);
-int popqueue(int a[],int v[]);
-int getscore(int obj,int tau,int missingnumber, int sc);
-void tkd_exec(void);
-Datum tkd_query(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(tkd_query); // version 1 function set to postgresql server
 
@@ -52,6 +47,7 @@ int **Pi,**Qi,*Q,*P,Qc,Pc; // as defined in paper
 int dominating_type;
 Dataset *dataset; // date set of all objects
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 int dominates(int x, int y){
@@ -513,7 +509,6 @@ void tkd_exec(){
 	*/
 }
 
->>>>>>> a560d34... avoid duplicate quick sort on the same set to make the algorithm more efficient; when quick sorting, missing value is no longer counted, instead, only existance value in the array
 ///////////
 /*
  * name: tkd_query
