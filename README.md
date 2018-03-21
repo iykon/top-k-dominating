@@ -1,15 +1,15 @@
 # top-k-dominating(tkd)
-extension of postgresql, top-k-dominating query of incomplete database
+An extension of postgresql, top-k-dominating query of incomplete database.
 
 ## Algorithm Discription
-* Please refer to Dr. Gao's paper: [Top-k Dominating Queries on Incomplete Data] (https://github.com/iykon/top-k-dominating/blob/master/TKD-algorithm.pdf)
+* Please refer to Dr. Gao's paper: [Top-k Dominating Queries on Incomplete Data](https://github.com/iykon/top-k-dominating/blob/master/TKD-algorithm.pdf)
 
 ## Testing Environment
   * Operating system: Mac OSX / Ubuntu 14.04
   * PostgreSQL version: PostgreSQL 9.3
 
 ## How to use?
-### 0. Install postgre environment first
+### 0. Install postgre environment
 
 For Ubuntu:
 
@@ -27,27 +27,28 @@ For Mac:
 
 ### 1. Clone and enter this repository
 ~~~terminal
-    git clone git@github.com:iykon/top-k-dominating.git
-    cd top-k-dominating
+  git clone git@github.com:iykon/top-k-dominating.git
+  cd top-k-dominating
 ~~~
 
-In terminal you will see the "tkd.sql" followed by a contrib path like this:
+In terminal, you will find the "tkd.sql" followed by a contrib path. Example:
+~~~
 "/usr/share/postgresql/9.3/contrib"
+~~~
 
 ### 3. Import tkd function (in postgresql)
 
-1. Login in postgres with the database that you want to add function to
+(1) Log into postgres with the database that you want to add function to.
 
-  (if you want to add function to **all** database, then you should login in **template1** database,
-google it for more details.)
+(If you want to add function to **all** database, log into **template1** database. More details can be found [here](https://www.postgresql.org/docs/9.3/static/manage-ag-templatedbs.html))
 
-2. Use postgresql command to import function like below
+(2) Use postgresql command to import function. Example:
 
 ~~~sql
     \i /usr/share/postgresql/9.3/contrib/tkd.sql
 ~~~
 
-3. You will see two "CREATE FUNCTION" outputed if everything ok
+(3) If everything is fine, two "CREATE FUNCTION" should be outputed.
 
 ### 4. Perform tkd query with warehouse algorithm
 Here is a database sample given in the paper:
@@ -91,11 +92,15 @@ postgres=> select * from tkd('select name,d1,d2,d3,d4 from tkd',3,0) as (name te
 
 ~~~
 
-Note that tkd function needs three parameters:
-
-1. the selection clause, which can not be NULL (text type)
-2. k (integer type)
-3. dominating method(integer type). Zero indicates a dominates b if a is smaller than b, non-zero number indicates a dominates b if a is larger than b. Notice that this parameter is optional and the default value is zero 
+Note that tkd function needs three parameters:<br>
+1. The selection clause (text type)
+* This clause can not be NULL.
+2. K (integer type)
+* Rows to output.
+3. Dominating method (integer type)
+* 0 indicates a dominates b if a is smaller than b.
+* Non-zero number indicates a dominates b if a is larger than b. 
+* This parameter is optional and the default value is zero.
 
 (ps: you should also provide the output format using as clause, otherwise it won't work).
 
